@@ -19,10 +19,31 @@
 
 ## 功能
 
-- **英雄强度榜**：按 Tier / 胜率 / 登场率 / 禁用率 / 吃鸡率 / 平均名次排序筛选，支持搜索
+- **英雄强度榜**：虚拟滚动列表，按 Tier / 胜率 / 登场率等排序筛选
 - **强化符文榜**：按稀有度分组展示全英雄汇总选用数据
-- **英雄详情页**：出装、加点、强化符文、双人组合（含多人组合）4 个 Tab
-- **设置页**：自动/手动更新频率配置、当前数据版本信息、手动检查更新（带下载进度条）
+- **英雄详情**：出装 / 协同 / 增幅 / 技能（含 1–18 级加点表）+ 迷你统计条
+- **收藏 / 对比 / 版本变更**：本地收藏置顶、多英雄并排对比、补丁间排名变动
+- **主题**：深色 / 浅色 / 跟随系统
+- **快捷键**：`⌘/Ctrl+K` 全局搜索
+- **设置**：数据更新进度、图片缓存清理、应用本体更新检查
+- **工程化**：Vitest + Playwright、PR CI、`tauri-plugin-updater` / `tauri-plugin-log`
+
+## 测试
+
+```bash
+pnpm --filter app test          # Vitest 单测
+pnpm --filter app build && pnpm --filter app test:e2e   # Playwright 冒烟（需先 build）
+cd app/src-tauri && cargo test  # Rust 单测
+```
+
+## 应用自更新签名（可选）
+
+构建带 updater 签名产物时，在仓库 Secrets 配置：
+
+- `TAURI_SIGNING_PRIVATE_KEY`：`app/src-tauri/keys/arena.key` 的内容（本地已生成，勿提交）
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`：若密钥有密码则填写
+
+公钥已写入 `app/src-tauri/tauri.conf.json`。未配置私钥时，安装包仍可构建；设置页的「检查应用更新」会走 GitHub Releases API。
 
 ## 本地开发
 

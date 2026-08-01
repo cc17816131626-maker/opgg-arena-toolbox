@@ -1,10 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useDataStore } from "../store/dataStore";
+import { useFavoritesStore } from "../store/favoritesStore";
 import { TierBadge } from "../components/TierBadge";
 import { ChampionAvatar } from "../components/ChampionAvatar";
 import { CachedImage } from "../components/CachedImage";
+import { MiniStatBar, avgPlaceToPercent } from "../components/MiniStatBar";
 import { getChampionProperName } from "../lib/championSearch";
 import { CHAMPION_PROPER_NAME } from "../data/championNames";
 import { pct, num, compactInt } from "../lib/format";
@@ -24,17 +27,28 @@ export function ChampionDetailPage() {
   const navigate = useNavigate();
   const bundle = useDataStore((s) => s.bundle);
   const [tab, setTab] = useState<TabKey>("build");
+  const favoriteKeys = useFavoritesStore((s) => s.keys);
+  const toggleFavorite = useFavoritesStore((s) => s.toggle);
+  const isFavorite = favoriteKeys.includes(championKey);
 
   const summary = useMemo(() => bundle?.champions.find((c) => c.key === championKey), [bundle, championKey]);
   const detail = bundle?.championDetails[championKey];
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") navigate(-1);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navigate]);
 
   if (!bundle) return null;
 
   if (!summary || !detail) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-zinc-500">
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-[var(--text-muted)]">
         <div>未找到该英雄的数据</div>
-        <button onClick={() => navigate("/")} className="text-sm text-indigo-300 hover:underline">
+        <button onClick={() => navigate("/")} className="text-sm text-indigo-400 hover:underline">
           返回首页
         </button>
       </div>
@@ -43,25 +57,67 @@ export function ChampionDetailPage() {
 
   return (
     <div className="flex h-full flex-col px-8 py-6">
-      <button onClick={() => navigate(-1)} className="mb-4 w-fit text-sm text-zinc-500 hover:text-zinc-200">
+      <button onClick={() => navigate(-1)} className="mb-4 w-fit text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)]">
         ← 返回
       </button>
 
-      <div className="mb-6 flex items-center gap-4">
+      <div className="mb-4 flex items-center gap-4">
         <ChampionAvatar src={summary.imageUrl} alt={summary.name} size={64} className="rounded-2xl" />
         <div className="flex-1">
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl font-bold">{getChampionProperName(summary)}</h1>
-            <span className="text-base text-zinc-400">{summary.name}</span>
+            <span className="text-base text-[var(--text-muted)]">{summary.name}</span>
             <TierBadge tier={summary.tier} />
-            <span className="text-sm text-zinc-500">#{summary.rank}</span>
+            <span className="text-sm text-[var(--text-muted)]">#{summary.rank}</span>
+            <button
+              type="button"
+              onClick={() => toggleFavorite(championKey)}
+              className={`ml-auto rounded-lg px-3 py-1.5 text-sm ring-1 transition-colors ${
+                isFavorite
+                  ? "bg-amber-500/15 text-amber-300 ring-amber-400/40"
+                  : "bg-[var(--surface-1)] text-[var(--text-muted)] ring-[var(--border)] hover:text-amber-300"
+              }`}
+              title={isFavorite ? "取消收藏" : "收藏"}
+            >
+              {isFavorite ? "★ 已收藏" : "☆ 收藏"}
+            </button>
           </div>
-          <div className="mt-1.5 flex gap-4 text-sm text-zinc-400">
-            <span>平均名次 <b className="text-zinc-200">{num(detail.averageStats.avgPlace)}</b></span>
-            <span>第一名 <b className="text-zinc-200">{pct(detail.averageStats.firstPlace)}</b></span>
-            <span>胜率 <b className="text-indigo-300">{pct(detail.averageStats.winRate)}</b></span>
-            <span>选用率 <b className="text-zinc-200">{pct(detail.averageStats.pickRate)}</b></span>
-            <span>禁用率 <b className="text-zinc-200">{pct(detail.averageStats.banRate)}</b></span>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <MiniStatBar
+              label="胜率"
+              value={detail.averageStats.winRate}
+              percent={detail.averageStats.winRate}
+              display={pct(detail.averageStats.winRate)}
+              accent="bg-indigo-400"
+            />
+            <MiniStatBar
+              label="登场率"
+              value={detail.averageStats.pickRate}
+              percent={detail.averageStats.pickRate}
+              display={pct(detail.averageStats.pickRate)}
+              accent="bg-sky-400"
+            />
+            <MiniStatBar
+              label="禁用率"
+              value={detail.averageStats.banRate}
+              percent={detail.averageStats.banRate}
+              display={pct(detail.averageStats.banRate)}
+              accent="bg-rose-400"
+            />
+            <MiniStatBar
+              label="吃鸡率"
+              value={detail.averageStats.firstPlace}
+              percent={detail.averageStats.firstPlace}
+              display={pct(detail.averageStats.firstPlace)}
+              accent="bg-amber-400"
+            />
+            <MiniStatBar
+              label="平均名次"
+              value={detail.averageStats.avgPlace}
+              percent={avgPlaceToPercent(detail.averageStats.avgPlace)}
+              display={num(detail.averageStats.avgPlace)}
+              accent="bg-emerald-400"
+            />
           </div>
         </div>
       </div>
@@ -153,6 +209,42 @@ function ItemRow({ entry }: { entry: ItemBuildEntry }) {
   );
 }
 
+function VirtualItemList({ entries }: { entries: ItemBuildEntry[] }) {
+  const parentRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: entries.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 52,
+    overscan: 8,
+  });
+
+  if (entries.length <= 12) {
+    return (
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {entries.map((e, i) => (
+          <ItemRow key={i} entry={e} />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div ref={parentRef} className="max-h-[360px] overflow-y-auto">
+      <div className="relative w-full" style={{ height: `${virtualizer.getTotalSize()}px` }}>
+        {virtualizer.getVirtualItems().map((v) => (
+          <div
+            key={v.key}
+            className="absolute left-0 top-0 w-full px-0.5"
+            style={{ height: `${v.size}px`, transform: `translateY(${v.start}px)` }}
+          >
+            <ItemRow entry={entries[v.index]} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function BuildTab({ build }: { build: import("../types").ChampionBuild }) {
   // 斗魂竞技场里所有人起始装备固定，OP.GG「出门装」通常为空，不展示该分组。
   const groups: { title: string; entries: ItemBuildEntry[] }[] = [
@@ -166,13 +258,9 @@ function BuildTab({ build }: { build: import("../types").ChampionBuild }) {
       {groups.map((g) => (
         <Section key={g.title} title={`${g.title}${g.entries.length ? ` · ${g.entries.length}` : ""}`}>
           {g.entries.length === 0 ? (
-            <div className="text-sm text-zinc-600">暂无数据</div>
+            <div className="text-sm text-[var(--text-muted)]">暂无数据</div>
           ) : (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {g.entries.map((e, i) => (
-                <ItemRow key={i} entry={e} />
-              ))}
-            </div>
+            <VirtualItemList entries={g.entries} />
           )}
         </Section>
       ))}
@@ -214,25 +302,57 @@ function SkillOrder({ order, separator }: { order: string[]; separator: string }
   );
 }
 
+function SkillLevelTable({ order }: { order: string[] }) {
+  const levels = Array.from({ length: 18 }, (_, i) => i + 1);
+  return (
+    <div className="mt-2 overflow-x-auto">
+      <div className="inline-grid gap-0.5" style={{ gridTemplateColumns: `repeat(18, minmax(18px, 1fr))` }}>
+        {levels.map((lv) => (
+          <div key={`h-${lv}`} className="text-center text-[9px] text-[var(--text-muted)]">
+            {lv}
+          </div>
+        ))}
+        {levels.map((lv) => {
+          const skill = order[lv - 1]?.toUpperCase() ?? "";
+          const style = SKILL_STYLE[skill] ?? "bg-white/5 text-zinc-400 ring-white/10";
+          return (
+            <div
+              key={`c-${lv}`}
+              className={`flex h-6 w-full items-center justify-center rounded text-[10px] font-mono font-bold ring-1 ${style}`}
+              title={`Lv${lv}: ${skill || "-"}`}
+            >
+              {skill || "·"}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function SkillsTab({ masteries }: { masteries: import("../types").SkillMastery[] }) {
-  if (masteries.length === 0) return <div className="text-sm text-zinc-600">暂无数据</div>;
+  if (masteries.length === 0) return <div className="text-sm text-[var(--text-muted)]">暂无数据</div>;
   return (
     <div className="space-y-4">
       {masteries.map((m, i) => (
-        <div key={i} className="rounded-xl bg-white/[0.02] p-4 ring-1 ring-white/5">
+        <div key={i} className="rounded-xl bg-[var(--surface-1)] p-4 ring-1 ring-[var(--border)]">
           <div className="mb-3 flex flex-wrap items-center gap-3 text-sm">
             <SkillOrder order={m.priorityOrder} separator=">" />
-            <span className="ml-auto text-xs text-zinc-500">
+            <span className="ml-auto text-xs text-[var(--text-muted)]">
               {compactInt(m.play)} 场 · 选用率 {pct(m.pickRate)} · 吃鸡率 {pct(m.firstPlace)}
             </span>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {m.builds.map((b, j) => (
-              <div key={j} className="flex flex-wrap items-center gap-3 text-xs text-zinc-400">
-                <SkillOrder order={b.order} separator="→" />
-                <span className="ml-auto shrink-0">
-                  选用率 {pct(b.pickRate)} · 胜率 <b className="text-indigo-300">{pct(b.winRate)}</b>
-                </span>
+              <div key={j} className="rounded-lg bg-[var(--surface-2)]/40 p-2.5">
+                <div className="mb-1 flex flex-wrap items-center gap-3 text-xs text-[var(--text-muted)]">
+                  <SkillOrder order={b.order.slice(0, 4)} separator="→" />
+                  <span className="text-[10px] text-[var(--text-muted)]">（前序优先）</span>
+                  <span className="ml-auto shrink-0">
+                    选用率 {pct(b.pickRate)} · 胜率 <b className="text-indigo-400">{pct(b.winRate)}</b>
+                  </span>
+                </div>
+                {b.order.length >= 8 && <SkillLevelTable order={b.order} />}
               </div>
             ))}
           </div>

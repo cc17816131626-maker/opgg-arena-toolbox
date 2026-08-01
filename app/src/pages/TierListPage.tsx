@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useDataStore } from "../store/dataStore";
 import { TierBadge } from "../components/TierBadge";
 import { ChampionAvatar } from "../components/ChampionAvatar";
@@ -21,6 +21,9 @@ const SORT_LABEL: Record<SortKey, string> = {
   avgPlace: "平均名次",
 };
 
+const ROW_GRID = "grid-cols-[64px_1fr_72px_100px_100px_100px_100px_110px]";
+const ROW_HEIGHT = 48;
+
 interface Row extends ChampionSummary {
   detail?: ChampionDetail;
 }
@@ -32,6 +35,7 @@ export function TierListPage() {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("rank");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
+  const parentRef = useRef<HTMLDivElement>(null);
 
   const rows: Row[] = useMemo(() => {
     if (!bundle) return [];
@@ -61,12 +65,23 @@ export function TierListPage() {
             return r.detail?.averageStats.firstPlace ?? -1;
           case "avgPlace":
             return r.detail?.averageStats.avgPlace ?? 999;
+          default: {
+            const _exhaustive: never = sortKey;
+            return _exhaustive;
+          }
         }
       };
       return (getVal(a) - getVal(b)) * sortDir;
     });
     return list;
-  }, [rows, search, sortKey, sortDir]);
+  }, [rows, search, sortKey, sortDir, searchIndex]);
+
+  const virtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 12,
+  });
 
   function toggleSort(key: SortKey) {
     if (key === sortKey) {
@@ -78,11 +93,7 @@ export function TierListPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center text-zinc-500">
-        正在加载数据…
-      </div>
-    );
+    return <div className="flex h-full items-center justify-center text-[var(--text-muted)]">正在加载数据…</div>;
   }
 
   if (!bundle) {
@@ -94,18 +105,20 @@ export function TierListPage() {
       <div className="mb-5 flex items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold">英雄强度榜</h1>
-          <p className="mt-1 text-sm text-zinc-500">补丁 {bundle.patch} · 共 {rows.length} 位英雄</p>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
+            补丁 {bundle.patch} · 共 {rows.length} 位英雄
+          </p>
         </div>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="搜索英雄…"
-          className="w-64 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none ring-0 placeholder:text-zinc-500 focus:border-indigo-400/50"
+          className="w-64 rounded-lg border border-[var(--border)] bg-[var(--surface-1)] px-3 py-2 text-sm outline-none placeholder:text-[var(--text-muted)] focus:border-indigo-400/50"
         />
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-white/5 bg-white/[0.02]">
-        <div className="grid grid-cols-[64px_1fr_72px_100px_100px_100px_100px_110px] items-center gap-2 border-b border-white/5 bg-white/[0.03] px-4 py-2.5 text-xs font-medium text-zinc-500">
+      <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface-1)]">
+        <div className={`grid ${ROW_GRID} items-center gap-2 border-b border-[var(--border)] bg-[var(--surface-2)] px-4 py-2.5 text-xs font-medium text-[var(--text-muted)]`}>
           <HeaderCell label="排名" sortKey="rank" active={sortKey} dir={sortDir} onClick={toggleSort} />
           <div>英雄</div>
           <HeaderCell label="Tier" sortKey="tier" active={sortKey} dir={sortDir} onClick={toggleSort} />
@@ -116,39 +129,41 @@ export function TierListPage() {
           <HeaderCell label="平均名次" sortKey="avgPlace" active={sortKey} dir={sortDir} onClick={toggleSort} />
         </div>
 
-        <div className="max-h-[calc(100vh-220px)] overflow-y-auto">
-          {filtered.length === 0 && (
-            <div className="px-4 py-10 text-center text-sm text-zinc-500">未找到匹配的英雄</div>
+        <div ref={parentRef} className="max-h-[calc(100vh-220px)] overflow-y-auto">
+          {filtered.length === 0 ? (
+            <div className="px-4 py-10 text-center text-sm text-[var(--text-muted)]">未找到匹配的英雄</div>
+          ) : (
+            <div className="relative w-full" style={{ height: `${virtualizer.getTotalSize()}px` }}>
+              {virtualizer.getVirtualItems().map((virtualRow) => {
+                const row = filtered[virtualRow.index];
+                return (
+                  <div
+                    key={row.key}
+                    onClick={() => navigate(`/champions/${row.key}`)}
+                    className={`absolute left-0 top-0 grid w-full ${ROW_GRID} cursor-pointer items-center gap-2 border-b border-[var(--border)] px-4 text-sm hover:bg-[var(--surface-hover)]`}
+                    style={{ height: `${virtualRow.size}px`, transform: `translateY(${virtualRow.start}px)` }}
+                  >
+                    <div className="font-mono text-[var(--text-muted)]">#{row.rank}</div>
+                    <div className="flex items-center gap-3">
+                      <ChampionAvatar src={row.imageUrl} alt={row.name} size={32} />
+                      <div className="flex flex-col leading-tight">
+                        <span className="font-medium">{getChampionProperName(row)}</span>
+                        <span className="text-[11px] text-[var(--text-muted)]">{row.name}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <TierBadge tier={row.tier} size="sm" />
+                    </div>
+                    <div>{pct(row.winRate)}</div>
+                    <div>{pct(row.pickRate)}</div>
+                    <div className="text-[var(--text-muted)]">{row.detail ? pct(row.detail.averageStats.banRate) : "-"}</div>
+                    <div className="text-[var(--text-muted)]">{row.detail ? pct(row.detail.averageStats.firstPlace) : "-"}</div>
+                    <div className="text-[var(--text-muted)]">{row.detail ? num(row.detail.averageStats.avgPlace) : "-"}</div>
+                  </div>
+                );
+              })}
+            </div>
           )}
-          {filtered.map((row, idx) => (
-            <motion.div
-              key={row.key}
-              layout
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.18, delay: Math.min(idx, 20) * 0.01 }}
-              whileHover={{ backgroundColor: "rgba(255,255,255,0.035)" }}
-              onClick={() => navigate(`/champions/${row.key}`)}
-              className="grid grid-cols-[64px_1fr_72px_100px_100px_100px_100px_110px] cursor-pointer items-center gap-2 border-b border-white/[0.03] px-4 py-2.5 text-sm last:border-b-0"
-            >
-              <div className="font-mono text-zinc-500">#{row.rank}</div>
-              <div className="flex items-center gap-3">
-                <ChampionAvatar src={row.imageUrl} alt={row.name} size={32} />
-                <div className="flex flex-col leading-tight">
-                  <span className="font-medium">{getChampionProperName(row)}</span>
-                  <span className="text-[11px] text-zinc-500">{row.name}</span>
-                </div>
-              </div>
-              <div>
-                <TierBadge tier={row.tier} size="sm" />
-              </div>
-              <div className="text-zinc-300">{pct(row.winRate)}</div>
-              <div className="text-zinc-300">{pct(row.pickRate)}</div>
-              <div className="text-zinc-400">{row.detail ? pct(row.detail.averageStats.banRate) : "-"}</div>
-              <div className="text-zinc-400">{row.detail ? pct(row.detail.averageStats.firstPlace) : "-"}</div>
-              <div className="text-zinc-400">{row.detail ? num(row.detail.averageStats.avgPlace) : "-"}</div>
-            </motion.div>
-          ))}
         </div>
       </div>
     </div>
@@ -172,7 +187,7 @@ function HeaderCell({
   return (
     <button
       onClick={() => onClick(sortKey)}
-      className={`flex items-center gap-1 text-left transition-colors hover:text-zinc-200 ${isActive ? "text-indigo-300" : ""}`}
+      className={`flex items-center gap-1 text-left transition-colors hover:text-[var(--text-primary)] ${isActive ? "text-indigo-400" : ""}`}
       title={SORT_LABEL[sortKey]}
     >
       {label}

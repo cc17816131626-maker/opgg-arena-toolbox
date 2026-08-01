@@ -12,6 +12,16 @@ import {
 } from "../lib/tauri";
 import { collectImageUrls } from "../lib/gameData";
 import { warmImageCache, type ImageCacheProgress } from "../lib/imageCache";
+import { usePatchHistoryStore } from "./patchHistoryStore";
+
+function recordPatchSnapshot(bundle: ArenaDataBundle | null, manifest: Manifest | null) {
+  if (!bundle) return;
+  usePatchHistoryStore.getState().recordBundle({
+    patch: bundle.patch,
+    version: manifest?.version ?? `local-${bundle.patch}`,
+    champions: bundle.champions,
+  });
+}
 
 export type UpdatePhase = "idle" | "checking" | "downloading" | "success" | "error";
 
@@ -84,6 +94,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         bundle = await loadSampleData();
       }
       set({ bundle, manifest, loading: false });
+      recordPatchSnapshot(bundle, manifest);
       warmImagesInBackground(bundle, set);
     } catch (err) {
       set({ loading: false, loadError: formatInvokeError(err) });
@@ -110,13 +121,15 @@ export const useDataStore = create<DataState>((set, get) => ({
     try {
       const manifest = await downloadAndApplyUpdate();
       const { bundle } = await reloadLocalState();
+      const nextBundle = bundle ?? get().bundle;
       set({
         updatePhase: "success",
         manifest,
-        bundle: bundle ?? get().bundle,
+        bundle: nextBundle,
         hasUpdateAvailable: false,
         downloadProgress: null,
       });
+      recordPatchSnapshot(nextBundle, manifest);
       warmImagesInBackground(bundle, set);
     } catch (err) {
       set({ updatePhase: "error", updateError: formatInvokeError(err) });
@@ -147,14 +160,16 @@ export const useDataStore = create<DataState>((set, get) => ({
         set({ updatePhase: "downloading", updateError: null });
         const manifest = await importBundledData();
         const { bundle } = await reloadLocalState();
+        const nextBundle = bundle ?? get().bundle;
         set({
           updatePhase: "success",
           manifest,
-          bundle: bundle ?? get().bundle,
+          bundle: nextBundle,
           hasUpdateAvailable: false,
           downloadProgress: null,
           updateError: null,
         });
+        recordPatchSnapshot(nextBundle, manifest);
         warmImagesInBackground(bundle, set);
       } catch (fallbackErr) {
         set({
@@ -170,13 +185,15 @@ export const useDataStore = create<DataState>((set, get) => ({
     try {
       const manifest = await importBundledData();
       const { bundle } = await reloadLocalState();
+      const nextBundle = bundle ?? get().bundle;
       set({
         updatePhase: "success",
         manifest,
-        bundle: bundle ?? get().bundle,
+        bundle: nextBundle,
         hasUpdateAvailable: false,
         downloadProgress: null,
       });
+      recordPatchSnapshot(nextBundle, manifest);
       warmImagesInBackground(bundle, set);
     } catch (err) {
       set({ updatePhase: "error", updateError: formatInvokeError(err) });

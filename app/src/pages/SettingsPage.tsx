@@ -3,7 +3,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useDataStore } from "../store/dataStore";
 import { useSettingsStore } from "../store/settingsStore";
 import { clearImageCache, formatInvokeError, getImageCacheInfo, type ImageCacheInfo } from "../lib/tauri";
+import { checkAppRelease, openExternal, type AppReleaseInfo } from "../lib/appUpdate";
+import { useThemeStore, type ThemeMode } from "../store/themeStore";
 import type { UpdateFrequency } from "../types";
+
+const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
+  { key: "dark", label: "深色" },
+  { key: "light", label: "浅色" },
+  { key: "system", label: "跟随系统" },
+];
 
 const FREQ_OPTIONS: { key: UpdateFrequency; label: string }[] = [
   { key: "onLaunch", label: "每次启动时" },
@@ -47,6 +55,10 @@ export function SettingsPage() {
   const [cacheInfo, setCacheInfo] = useState<ImageCacheInfo | null>(null);
   const [cacheBusy, setCacheBusy] = useState(false);
   const [cacheMessage, setCacheMessage] = useState<string | null>(null);
+  const themeMode = useThemeStore((s) => s.mode);
+  const setThemeMode = useThemeStore((s) => s.setMode);
+  const [appRelease, setAppRelease] = useState<AppReleaseInfo | null>(null);
+  const [appCheckBusy, setAppCheckBusy] = useState(false);
 
   const refreshCacheInfo = useCallback(async () => {
     try {
@@ -72,6 +84,15 @@ export function SettingsPage() {
       setCacheMessage(formatInvokeError(err));
     } finally {
       setCacheBusy(false);
+    }
+  }
+
+  async function handleCheckAppUpdate() {
+    setAppCheckBusy(true);
+    try {
+      setAppRelease(await checkAppRelease());
+    } finally {
+      setAppCheckBusy(false);
     }
   }
 
@@ -207,8 +228,55 @@ export function SettingsPage() {
         {cacheMessage && <p className="mt-3 text-xs text-zinc-500">{cacheMessage}</p>}
       </section>
 
-      <section className="rounded-xl bg-white/[0.02] p-5 ring-1 ring-white/5">
-        <h2 className="mb-4 text-sm font-semibold text-zinc-300">自动更新</h2>
+      <section className="mb-6 rounded-xl bg-[var(--surface-1)] p-5 ring-1 ring-[var(--border)]">
+        <h2 className="mb-4 text-sm font-semibold">外观</h2>
+        <div className="grid grid-cols-3 gap-2">
+          {THEME_OPTIONS.map((opt) => (
+            <button
+              key={opt.key}
+              onClick={() => setThemeMode(opt.key)}
+              className={`rounded-lg px-3 py-2.5 text-sm font-medium ring-1 transition-colors ${
+                themeMode === opt.key
+                  ? "bg-indigo-500/15 text-indigo-300 ring-indigo-400/40"
+                  : "bg-[var(--surface-1)] text-[var(--text-muted)] ring-[var(--border)] hover:text-[var(--text-primary)]"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="mb-6 rounded-xl bg-[var(--surface-1)] p-5 ring-1 ring-[var(--border)]">
+        <h2 className="mb-4 text-sm font-semibold">应用本体更新</h2>
+        <div className="mb-3 space-y-2 text-sm">
+          <Row label="当前版本" value={appRelease?.currentVersion ?? "0.1.0"} />
+          <Row label="最新版本" value={appRelease?.latestVersion ?? (appRelease ? "未知" : "未检查")} />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handleCheckAppUpdate}
+            disabled={appCheckBusy}
+            className="rounded-lg bg-[var(--surface-2)] px-4 py-2 text-sm font-medium ring-1 ring-[var(--border)] disabled:opacity-50"
+          >
+            {appCheckBusy ? "检查中…" : "检查应用更新"}
+          </button>
+          {appRelease?.hasUpdate && appRelease.releaseUrl && (
+            <button
+              onClick={() => void openExternal(appRelease.releaseUrl!)}
+              className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white"
+            >
+              前往下载 v{appRelease.latestVersion}
+            </button>
+          )}
+          {appRelease && !appRelease.hasUpdate && appRelease.latestVersion && (
+            <span className="self-center text-xs text-emerald-400">已是最新版本</span>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-xl bg-[var(--surface-1)] p-5 ring-1 ring-[var(--border)]">
+        <h2 className="mb-4 text-sm font-semibold">数据自动更新</h2>
 
         <div className="mb-4 flex items-center justify-between">
           <span className="text-sm text-zinc-300">启用自动检查更新</span>

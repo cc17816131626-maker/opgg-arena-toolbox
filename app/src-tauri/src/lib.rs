@@ -13,8 +13,21 @@ use update::{check_for_update, download_and_apply_update, get_local_data, get_lo
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .level(log::LevelFilter::Info)
+                .targets([
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
+                        file_name: Some("arena".into()),
+                    }),
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
+                ])
+                .build(),
+        )
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             seed::ensure_seed_data(app.handle());
+            log::info!("Arena Helper started");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

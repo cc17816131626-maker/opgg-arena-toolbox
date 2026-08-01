@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Typecheck app
+        run: pnpm --filter app exec tsc --noEmit
+      - name: Typecheck scraper
+        run: pnpm --filter scraper typecheck
+      - name: Unit tests
+        run: pnpm --filter app test
+      - name: Build frontend
+        run: pnpm --filter app build
+      - name: Install Playwright browsers
+        working-directory: app
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Smoke tests
+        working-directory: app
+        run: pnpm exec playwright test
+
+  rust:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/src-tauri
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+      - name: Cargo test
+        run: cargo test

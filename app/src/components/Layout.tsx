@@ -9,11 +9,16 @@ import { buildChampionSearchIndex, getChampionProperName, searchChampions } from
 import { getPollIntervalMs, shouldCheckNow, shouldCheckOnLaunch } from "../lib/autoUpdate";
 import { isTauri } from "../lib/tauri";
 import { CommandPalette } from "./CommandPalette";
+import { useThemeStore } from "../store/themeStore";
+import { useFavoritesStore } from "../store/favoritesStore";
+import { usePatchHistoryStore } from "../store/patchHistoryStore";
 
 const NAV_ITEMS = [
   { to: "/", label: "首页", icon: "🏠" },
   { to: "/tier-list", label: "强度榜", icon: "📊" },
   { to: "/augments", label: "强化符文", icon: "💎" },
+  { to: "/compare", label: "对比", icon: "⚖️" },
+  { to: "/changelog", label: "版本变更", icon: "📝" },
   { to: "/settings", label: "设置", icon: "⚙️" },
 ];
 
@@ -147,6 +152,9 @@ export function Layout() {
 
   useEffect(() => {
     bootstrap();
+    useThemeStore.getState().load();
+    useFavoritesStore.getState().load();
+    usePatchHistoryStore.getState().load();
   }, [bootstrap]);
 
   useAutoUpdateScheduler();
@@ -157,28 +165,32 @@ export function Layout() {
       if (isModK) {
         e.preventDefault();
         setPaletteOpen((open) => !open);
+        return;
+      }
+      if (e.key === "Escape" && !paletteOpen) {
+        // 交给各页面/对话框自行处理；全局仅关闭命令面板
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [paletteOpen]);
 
   return (
-    <div className="flex h-screen w-screen bg-[#0b0d12] text-zinc-100">
+    <div className="flex h-screen w-screen bg-[var(--bg)] text-[var(--text-primary)]">
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-      <aside className="flex w-60 shrink-0 flex-col border-r border-white/5 bg-[#11141b] px-3 py-5">
+      <aside className="flex w-60 shrink-0 flex-col border-r border-[var(--border)] bg-[var(--bg-sidebar)] px-3 py-5">
         <div className="mb-5 px-2">
           <div className="text-lg font-bold tracking-wide">斗魂竞技场</div>
-          <div className="mt-0.5 text-xs text-zinc-500">{bundle ? `补丁 ${bundle.patch}` : "数据未加载"}</div>
+          <div className="mt-0.5 text-xs text-[var(--text-muted)]">{bundle ? `补丁 ${bundle.patch}` : "数据未加载"}</div>
         </div>
 
         <button
           type="button"
           onClick={() => setPaletteOpen(true)}
-          className="mb-3 mx-2 flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2 text-left text-xs text-zinc-500 transition-colors hover:border-indigo-400/30 hover:text-zinc-300"
+          className="mb-3 mx-2 flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-1)] px-2.5 py-2 text-left text-xs text-[var(--text-muted)] transition-colors hover:border-indigo-400/30 hover:text-[var(--text-primary)]"
         >
           <span className="flex-1">搜索英雄…</span>
-          <kbd className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-500">⌘K</kbd>
+          <kbd className="rounded border border-[var(--border)] bg-[var(--surface-2)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">⌘K</kbd>
         </button>
 
         <ChampionSearchBox />

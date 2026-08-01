@@ -39,6 +39,22 @@ jobs:
           ARENA_DATA_URL_TEMPLATE: https://github.com/${{ github.repository }}/releases/download/{version}/arena-data.json.gz
         run: pnpm scrape
 
+      - name: 写入 CI Summary（数据 diff）
+        if: always()
+        working-directory: scraper
+        run: |
+          {
+            echo "## 斗魂竞技场抓取报告"
+            echo
+            if [ -f output/diff-report.txt ]; then
+              echo '```'
+              cat output/diff-report.txt
+              echo '```'
+            else
+              echo "_无 diff-report.txt_"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: 读取版本号
         id: manifest
         working-directory: scraper

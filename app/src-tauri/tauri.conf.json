@@ -37,6 +37,15 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI1Mzg2ODUwREU3OUQwNjYKUldSbTBIbmVVR2c0dFhPRm9SUnBLSklxSVZiQXNBOVhrYzBUN2hMeWtRbFJVWk5oMmlxTFJhRG0K",
+      "endpoints": [
+        "https://github.com/cc17816131626-maker/opgg-arena-toolbox/releases/latest/download/latest.json"
+      ]
+    }
   }
 }
