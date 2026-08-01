@@ -20,3 +20,4 @@ app/dist/
 !.env.example
 .playwright-cli/
 *.log
+.cursor/
