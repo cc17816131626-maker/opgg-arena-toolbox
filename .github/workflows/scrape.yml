@@ -60,10 +60,11 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           mkdir -p data
           cp scraper/output/manifest.json data/manifest.json
-          if git diff --quiet -- data/manifest.json; then
+          # 必须先 add：未跟踪文件对 git diff 不可见，否则首次写入会被误判为「无变化」
+          git add data/manifest.json
+          if git diff --cached --quiet -- data/manifest.json; then
             echo "manifest.json 无变化，跳过提交"
             exit 0
           fi
-          git add data/manifest.json
           git commit -m "chore(data): 更新 manifest.json 到 ${{ steps.manifest.outputs.version }}"
           git push

@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "斗魂竞技场助手",
+  "productName": "Arena Helper",
   "version": "0.1.0",
   "identifier": "com.opgg-toolbox.arena",
   "build": {
