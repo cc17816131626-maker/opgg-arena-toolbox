@@ -1,0 +1,22 @@
+{
+  "name": "scraper",
+  "private": true,
+  "version": "0.1.0",
+  "description": "抓取 OP.GG 斗魂竞技场（Arena）数据，生成离线 JSON 数据包与 manifest",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "scrape": "tsx src/index.ts",
+    "scrape:limit": "tsx src/index.ts --limit=5",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

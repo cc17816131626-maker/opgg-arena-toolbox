@@ -1,0 +1,22 @@
+node_modules/
+dist/
+dist-ssr/
+.DS_Store
+
+# scraper
+scraper/output/
+scraper/output-*/
+scraper/.cache/
+
+# tauri / rust
+app/src-tauri/target/
+app/node_modules/
+app/dist/
+
+# misc
+*.local
+.env
+.env.*
+!.env.example
+.playwright-cli/
+*.log

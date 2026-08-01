@@ -1,0 +1,71 @@
+name: 抓取斗魂竞技场数据
+
+on:
+  schedule:
+    # 每天 02:00 UTC（北京时间 10:00）执行一次，LoL 大版本节奏约两周一次，
+    # 每日抓取足够覆盖版本更新，又不会对 op.gg 造成过大压力。
+    - cron: "0 2 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: scrape-arena-data
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 执行抓取
+        working-directory: scraper
+        env:
+          ARENA_DATA_URL_TEMPLATE: https://github.com/${{ github.repository }}/releases/download/{version}/arena-data.json.gz
+        run: pnpm scrape
+
+      - name: 读取版本号
+        id: manifest
+        working-directory: scraper
+        run: echo "version=$(node -p "require('./output/manifest.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: 发布 GitHub Release（数据包）
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.manifest.outputs.version }}
+          name: 斗魂竞技场数据 ${{ steps.manifest.outputs.version }}
+          body: 自动抓取生成，详见 manifest.json。
+          files: |
+            scraper/output/arena-data.json.gz
+          fail_on_unmatched_files: true
+
+      - name: 提交最新 manifest.json 到仓库
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          mkdir -p data
+          cp scraper/output/manifest.json data/manifest.json
+          if git diff --quiet -- data/manifest.json; then
+            echo "manifest.json 无变化，跳过提交"
+            exit 0
+          fi
+          git add data/manifest.json
+          git commit -m "chore(data): 更新 manifest.json 到 ${{ steps.manifest.outputs.version }}"
+          git push

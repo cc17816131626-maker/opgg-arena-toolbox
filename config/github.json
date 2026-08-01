@@ -1,0 +1,5 @@
+{
+  "owner": "cc17816131626-maker",
+  "repo": "opgg-arena-toolbox",
+  "_comment": "推送到 GitHub 后把 owner/repo 改成真实仓库名，然后运行: node scripts/apply-github-config.mjs"
+}
