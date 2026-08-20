@@ -1,8 +1,8 @@
 {
-  "version": "2026-08-19-16.16.1",
+  "version": "2026-08-20-16.16.1",
   "patch": "16.16.1",
-  "generatedAt": "2026-08-19T02:59:39.626Z",
-  "dataUrl": "https://github.com/cc17816131626-maker/opgg-arena-toolbox/releases/download/2026-08-19-16.16.1/arena-data.json.gz",
-  "sha256": "e477458b9d97aebbbc87de382690a1ea5962c6fdd2d8b151472cd0f7223a68f8",
-  "sizeBytes": 1181421
+  "generatedAt": "2026-08-20T02:59:27.991Z",
+  "dataUrl": "https://github.com/cc17816131626-maker/opgg-arena-toolbox/releases/download/2026-08-20-16.16.1/arena-data.json.gz",
+  "sha256": "313c76e9de00148b09b454b9e4fee56d82015e6657d2c0b8234fa7d120064991",
+  "sizeBytes": 1185051
 }
